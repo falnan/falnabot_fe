@@ -104,8 +104,8 @@ export function UsersTable({ search, navigate }: DataTableProps) {
       setIsLoading(true)
       try {
         const response = await axios.get(
-          // 'https://68fb30e294ec96066024fcab.mockapi.io/api/users',
-          'http://localhost:3000/api/users'
+          'https://darsy.my.id/api/users'
+          // 'http://localhost:3000/api/users'
           // {
           //   params: {
           //     page: pagination.pageIndex + 1,

@@ -88,7 +88,7 @@ export function Chats() {
     {}
   )
 
-  const socket = io('http://localhost:3000', {
+  const socket = io('https://darsy.my.id', {
     transports: ['websocket'],
   })
 
