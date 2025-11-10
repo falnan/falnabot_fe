@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -19,6 +21,25 @@ import { Overview } from './components/overview'
 import { RecentSales } from './components/recent-sales'
 
 export function Dashboard() {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get('http://localhost:3000/api/users')
+        setUsers(response.data)
+      } catch (err: any) {
+        setError(err.message || 'Terjadi kesalahan saat mengambil data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
+  console.log(users)
   return (
     <>
       {/* ===== Top Heading ===== */}

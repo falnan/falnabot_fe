@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import axios from 'axios'
 import {
   type SortingState,
   type VisibilityState,
@@ -22,18 +23,20 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { roles } from '../data/data'
 import { type User } from '../data/schema'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { usersColumns as columns } from './users-columns'
 
 type DataTableProps = {
-  data: User[]
   search: Record<string, unknown>
   navigate: NavigateFn
 }
 
-export function UsersTable({ data, search, navigate }: DataTableProps) {
+export function UsersTable({ search, navigate }: DataTableProps) {
+  const [data, setData] = useState<User[]>([])
+  const [totalPage, setTotalPage] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -53,13 +56,13 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
   } = useTableUrlState({
     search,
     navigate,
-    pagination: { defaultPage: 1, defaultPageSize: 10 },
+    pagination: { defaultPage: 1, defaultPageSize: 4 },
     globalFilter: { enabled: false },
     columnFilters: [
       // username per-column text filter
-      { columnId: 'username', searchKey: 'username', type: 'string' },
-      { columnId: 'status', searchKey: 'status', type: 'array' },
-      { columnId: 'role', searchKey: 'role', type: 'array' },
+      { columnId: 'fullName', searchKey: 'fullName', type: 'string' },
+      // { columnId: 'status', searchKey: 'status', type: 'array' },
+      // { columnId: 'role', searchKey: 'role', type: 'array' },
     ],
   })
 
@@ -75,6 +78,10 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
       columnVisibility,
     },
     enableRowSelection: true,
+    manualPagination: true,
+    // manualFiltering: true,
+    manualSorting: true,
+    pageCount: totalPage,
     onPaginationChange,
     onColumnFiltersChange,
     onRowSelectionChange: setRowSelection,
@@ -92,6 +99,33 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
     ensurePageInRange(table.getPageCount())
   }, [table, ensurePageInRange])
 
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true)
+      try {
+        const response = await axios.get(
+          // 'https://68fb30e294ec96066024fcab.mockapi.io/api/users',
+          'http://localhost:3000/api/users'
+          // {
+          //   params: {
+          //     page: pagination.pageIndex + 1,
+          //     limit: pagination.pageSize,
+          //     search: search.name,
+          //   },
+          // }
+        )
+        setData(response.data)
+        // setTotalPage(response.data.meta.totalPages)
+      } catch (error) {
+        console.error('❌ Fetch failed:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
   return (
     <div
       className={cn(
@@ -102,24 +136,21 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
       <DataTableToolbar
         table={table}
         searchPlaceholder='Filter users...'
-        searchKey='username'
-        filters={[
-          {
-            columnId: 'status',
-            title: 'Status',
-            options: [
-              { label: 'Active', value: 'active' },
-              { label: 'Inactive', value: 'inactive' },
-              { label: 'Invited', value: 'invited' },
-              { label: 'Suspended', value: 'suspended' },
-            ],
-          },
-          {
-            columnId: 'role',
-            title: 'Role',
-            options: roles.map((role) => ({ ...role })),
-          },
-        ]}
+        searchKey='fullName'
+        filters={
+          [
+            // {
+            //   columnId: 'status',
+            //   title: 'Status',
+            //   options: [
+            //     { label: 'Aus', value: 'aus' },
+            //     { label: '405', value: '405' },
+            //     { label: 'Invited', value: 'invited' },
+            //     { label: 'Suspended', value: 'suspended' },
+            //   ],
+            // },
+          ]
+        }
       />
       <div className='overflow-hidden rounded-md border'>
         <Table>

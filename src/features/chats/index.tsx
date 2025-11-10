@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Fragment } from 'react/jsx-runtime'
+import axios from 'axios'
 import { format } from 'date-fns'
 import {
   ArrowLeft,
@@ -14,6 +15,7 @@ import {
   Video,
   MessagesSquare,
 } from 'lucide-react'
+import { io } from 'socket.io-client'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -25,12 +27,29 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { NewChat } from './components/new-chat'
+// import { NewChat } from './components/new-chat'
 import { type ChatUser, type Convo } from './data/chat-types'
+
 // Fake Data
-import { conversations } from './data/convo.json'
+// import { conversations } from './data/convo.json'
+
+interface Message {
+  sender: string
+  message: string
+  timestamp: string
+}
+interface Conversation {
+  id: string
+  profile: string | null
+  phoneNumber: string
+  username: string | null
+  fullName: string | null
+  title: string | null
+  messages: Message[]
+}
 
 export function Chats() {
+  const [conversations, setConversations] = useState<Conversation[]>([])
   const [search, setSearch] = useState('')
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null)
   const [mobileSelectedUser, setMobileSelectedUser] = useState<ChatUser | null>(
@@ -40,9 +59,17 @@ export function Chats() {
     useState(false)
 
   // Filtered data based on the search query
-  const filteredChatList = conversations.filter(({ fullName }) =>
-    fullName.toLowerCase().includes(search.trim().toLowerCase())
-  )
+  // const filteredChatList = conversations.filter(({ fullName }) =>
+  //   fullName.toLowerCase().includes(search.trim().toLowerCase())
+  // )
+
+  const filteredChatList = conversations.filter(({ fullName, phoneNumber }) => {
+    const query = search.trim().toLowerCase()
+    return (
+      (fullName && fullName.toLowerCase().includes(query)) ||
+      (phoneNumber && phoneNumber.toLowerCase().includes(query))
+    )
+  })
 
   const currentMessage = selectedUser?.messages.reduce(
     (acc: Record<string, Convo[]>, obj) => {
@@ -61,7 +88,68 @@ export function Chats() {
     {}
   )
 
-  const users = conversations.map(({ messages, ...user }) => user)
+  const socket = io('http://localhost:3000', {
+    transports: ['websocket'],
+  })
+
+  useEffect(() => {
+    // Saat terkoneksi ke server
+    socket.on('connect', () => {
+      console.log('✅ Connected to server by id:', socket.id)
+      socket.emit('get_conversations')
+    })
+
+    socket.on('user_updated', (updatedUser) => {
+      console.log('🧑‍💻 User updated:', updatedUser)
+      // Refresh data agar frontend ikut berubah
+      socket.emit('get_conversations')
+    })
+    // Terima event 'events' dari server
+    socket.on('get_conversations', (data) => {
+      console.log('📩 Received events:', data)
+      setConversations(data.conversations)
+    })
+
+    // Bersihkan listener saat komponen unmount
+    return () => {
+      socket.off('connect')
+      socket.off('user_updated')
+      socket.off('get_conversations')
+    }
+  }, [])
+
+  useEffect(() => {
+    socket.on('conversation_updated', (updatedConv) => {
+      console.log(updatedConv)
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.id === updatedConv.id)
+        if (index !== -1) {
+          const newList = [...prev]
+          newList[index] = updatedConv
+          return newList
+        } else {
+          return [updatedConv, ...prev]
+        }
+      })
+    })
+
+    return () => {
+      socket.off('conversation_updated')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedUser) return
+
+    // Cari versi terbaru dari conversation yang sedang aktif
+    const updated = conversations.find((c) => c.id === selectedUser.id)
+    if (updated && updated !== selectedUser) {
+      //@ts-ignore
+      setSelectedUser(updated)
+    }
+  }, [conversations])
+
+  console.log(conversations)
 
   return (
     <>
@@ -115,8 +203,15 @@ export function Chats() {
             </div>
 
             <ScrollArea className='-mx-3 h-full overflow-scroll p-3'>
-              {filteredChatList.map((chatUsr) => {
-                const { id, profile, username, messages, fullName } = chatUsr
+              {filteredChatList.map((chatUsr: any) => {
+                const {
+                  id,
+                  profile,
+                  username,
+                  messages,
+                  fullName,
+                  phoneNumber,
+                } = chatUsr
                 const lastConvo = messages[0]
                 const lastMsg =
                   lastConvo.sender === 'You'
@@ -138,12 +233,15 @@ export function Chats() {
                     >
                       <div className='flex gap-2'>
                         <Avatar>
-                          <AvatarImage src={profile} alt={username} />
+                          <AvatarImage
+                            src={profile ? profile : ''}
+                            alt={username ? username : phoneNumber}
+                          />
                           <AvatarFallback>{username}</AvatarFallback>
                         </Avatar>
                         <div>
                           <span className='col-start-2 row-span-2 font-medium'>
-                            {fullName}
+                            {fullName ? fullName : phoneNumber}
                           </span>
                           <span className='text-muted-foreground group-hover:text-accent-foreground/90 col-start-2 row-span-2 row-start-2 line-clamp-2 text-ellipsis'>
                             {lastMsg}
@@ -338,11 +436,11 @@ export function Chats() {
             </div>
           )}
         </section>
-        <NewChat
+        {/* <NewChat
           users={users}
           onOpenChange={setCreateConversationDialog}
           open={createConversationDialogOpened}
-        />
+        /> */}
       </Main>
     </>
   )
