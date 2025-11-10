@@ -103,19 +103,10 @@ export function UsersTable({ search, navigate }: DataTableProps) {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await axios.get(
-          'https://darsy.my.id/api/users'
-          // 'http://localhost:3000/api/users'
-          // {
-          //   params: {
-          //     page: pagination.pageIndex + 1,
-          //     limit: pagination.pageSize,
-          //     search: search.name,
-          //   },
-          // }
-        )
+        const response = await axios.get('https://darsy.my.id/api/users', {
+          withCredentials: true,
+        })
         setData(response.data)
-        // setTotalPage(response.data.meta.totalPages)
       } catch (error) {
         console.error('❌ Fetch failed:', error)
       } finally {
